@@ -1,6 +1,9 @@
 import { isEqual, parseISO, startOfHour } from 'date-fns';
-import { Router } from 'express';
+import { request, Router } from 'express';
+import { getCustomRepository } from 'typeorm';
 import { uuid } from 'uuidv4';
+import AppointmentRepository from '../repositories/AppointmentRepository';
+import CreateAppointmentService from '../services/CreateAppointmentService';
 
 const appointmentsRouter = Router();
 
@@ -12,29 +15,24 @@ interface Appointment {
 
 const appointments: Appointment[] = [];
 
-appointmentsRouter.post('/', (request, response) => {
+appointmentsRouter.get('/', (request, response) => {
+  const appointmentRepository = getCustomRepository(AppointmentRepository);
+  const appointments = appointmentRepository.find();
+
+  return response.json({appointments});
+});
+
+appointmentsRouter.post('/', async (request, response) => {
 
   const { provider, date } = request.body;
-  
   const parsedDate = startOfHour(parseISO(date));
+  const appointmentService = new CreateAppointmentService();
 
-  const findAppointmentInSameDate = appointments.find(
-    appointment => isEqual(parsedDate, appointment.date)
-  );
-
-  if(findAppointmentInSameDate) {
-    return response.status(400).json({ message: 'Já existe um agendamento para o horário selecionado.' })
-  }
-
-  const appointment = {
-    id: uuid(),
-    provider, 
-    date: parsedDate,
-  };
-
-  appointments.push(appointment);
-
-  return response.json(appointment);
+  const createdAppointment = await appointmentService.createAppointment({
+    provider,
+    date: parsedDate
+  });
+  return response.json(createdAppointment);
 });
 
 export default appointmentsRouter;
